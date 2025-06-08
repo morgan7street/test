@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import json
 import requests
+import re
 
 app = Flask(__name__)
 DATABASE = Path('nutrients.db')
@@ -89,7 +90,11 @@ def fetch_nutrition(name):
     )
     resp.raise_for_status()
     text = resp.json()["choices"][0]["message"]["content"]
-    return json.loads(text)
+    # parfois la reponse contient du texte additionnel avant/apres le JSON
+    match = re.search(r"{.*}", text, re.S)
+    if not match:
+        raise ValueError("Réponse inattendue d'OpenRouter")
+    return json.loads(match.group(0))
 
 def add_food(name, calories, protein, carbs, fat, nutriscore):
     conn = get_db_connection()
