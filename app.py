@@ -1,6 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
 from pathlib import Path
+import os
+import json
+import requests
 
 app = Flask(__name__)
 DATABASE = Path('nutrients.db')
@@ -23,9 +26,14 @@ def init_db():
                 protein REAL NOT NULL,
                 carbs REAL NOT NULL,
                 fat REAL NOT NULL,
+                nutriscore TEXT,
                 created_at DATE DEFAULT (DATE('now'))
             );"""
     )
+    c.execute("PRAGMA table_info(food)")
+    cols = [r[1] for r in c.fetchall()]
+    if 'nutriscore' not in cols:
+        c.execute("ALTER TABLE food ADD COLUMN nutriscore TEXT")
     c.execute(
         """CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -53,11 +61,41 @@ def set_calorie_limit(value):
     conn.commit()
     conn.close()
 
-def add_food(name, calories, protein, carbs, fat):
+def fetch_nutrition(name):
+    """Use OpenRouter to obtain nutrition facts and NutriScore for a food."""
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY not set")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://example.com",
+        "X-Title": "Nutrient Tracker",
+    }
+    prompt = (
+        "Donne la valeur nutritionnelle pour 100g de "
+        f"{name} en calories, proteines, glucides et lipides et le Nutri-score (A-E)."
+        " Reponds en JSON avec les cles calories, protein, carbs, fat et nutriscore."
+    )
+    data = {
+        "model": "microsoft/phi-4-reasoning:free",
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    resp = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers=headers,
+        json=data,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    text = resp.json()["choices"][0]["message"]["content"]
+    return json.loads(text)
+
+def add_food(name, calories, protein, carbs, fat, nutriscore):
     conn = get_db_connection()
     conn.execute(
-        "INSERT INTO food (name, calories, protein, carbs, fat) VALUES (?,?,?,?,?)",
-        (name, calories, protein, carbs, fat),
+        "INSERT INTO food (name, calories, protein, carbs, fat, nutriscore) VALUES (?,?,?,?,?,?)",
+        (name, calories, protein, carbs, fat, nutriscore),
     )
     conn.commit()
     conn.close()
@@ -89,11 +127,13 @@ def index():
 def add():
     if request.method == 'POST':
         name = request.form['name']
-        calories = float(request.form['calories'])
-        protein = float(request.form['protein'])
-        carbs = float(request.form['carbs'])
-        fat = float(request.form['fat'])
-        add_food(name, calories, protein, carbs, fat)
+        info = fetch_nutrition(name)
+        calories = float(info['calories'])
+        protein = float(info['protein'])
+        carbs = float(info['carbs'])
+        fat = float(info['fat'])
+        nutriscore = info.get('nutriscore')
+        add_food(name, calories, protein, carbs, fat, nutriscore)
         return redirect(url_for('index'))
     return render_template('add.html')
 
