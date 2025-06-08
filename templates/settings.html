@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paramètres</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+<div class="container py-4">
+  <h1 class="mb-4">Limite de calories</h1>
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Limite quotidienne de calories</label>
+      <input type="number" step="0.01" name="limit" value="{{ current }}" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">Retour</a>
+  </form>
+</div>
+</body>
+</html>
