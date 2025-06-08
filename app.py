@@ -5,6 +5,7 @@ import os
 import json
 import requests
 import re
+from json import JSONDecodeError, JSONDecoder
 
 app = Flask(__name__)
 DATABASE = Path('nutrients.db')
@@ -90,11 +91,16 @@ def fetch_nutrition(name):
     )
     resp.raise_for_status()
     text = resp.json()["choices"][0]["message"]["content"]
-    # parfois la reponse contient du texte additionnel avant/apres le JSON
-    match = re.search(r"{.*}", text, re.S)
-    if not match:
+    # parfois la réponse contient du texte en plus autour de l'objet JSON.
+    start = text.find("{")
+    if start == -1:
         raise ValueError("Réponse inattendue d'OpenRouter")
-    return json.loads(match.group(0))
+    decoder = JSONDecoder()
+    try:
+        obj, _ = decoder.raw_decode(text[start:])
+    except JSONDecodeError as exc:
+        raise ValueError("Impossible de parser la réponse d'OpenRouter") from exc
+    return obj
 
 def add_food(name, calories, protein, carbs, fat, nutriscore):
     conn = get_db_connection()
