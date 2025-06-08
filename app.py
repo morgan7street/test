@@ -37,9 +37,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-@app.before_first_request
-def initialize():
-    init_db()
 
 # Helper functions
 
@@ -108,6 +105,9 @@ def settings():
         return redirect(url_for('index'))
     current = get_calorie_limit()
     return render_template('settings.html', current=current)
+
+# Initialize the database when the application starts
+init_db()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
