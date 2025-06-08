@@ -28,6 +28,7 @@ def init_db():
                 protein REAL NOT NULL,
                 carbs REAL NOT NULL,
                 fat REAL NOT NULL,
+                quantity REAL NOT NULL,
                 nutriscore TEXT,
                 created_at DATE DEFAULT (DATE('now'))
             );"""
@@ -36,6 +37,8 @@ def init_db():
     cols = [r[1] for r in c.fetchall()]
     if 'nutriscore' not in cols:
         c.execute("ALTER TABLE food ADD COLUMN nutriscore TEXT")
+    if 'quantity' not in cols:
+        c.execute("ALTER TABLE food ADD COLUMN quantity REAL NOT NULL DEFAULT 100")
     c.execute(
         """CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -108,11 +111,11 @@ def fetch_nutrition(name):
         raise ValueError("Impossible de parser la réponse d'OpenRouter") from exc
     return obj
 
-def add_food(name, calories, protein, carbs, fat, nutriscore):
+def add_food(name, calories, protein, carbs, fat, quantity, nutriscore):
     conn = get_db_connection()
     conn.execute(
-        "INSERT INTO food (name, calories, protein, carbs, fat, nutriscore) VALUES (?,?,?,?,?,?)",
-        (name, calories, protein, carbs, fat, nutriscore),
+        "INSERT INTO food (name, calories, protein, carbs, fat, quantity, nutriscore) VALUES (?,?,?,?,?,?,?)",
+        (name, calories, protein, carbs, fat, quantity, nutriscore),
     )
     conn.commit()
     conn.close()
@@ -144,22 +147,25 @@ def index():
 def add():
     error = None
     name = ""
+    quantity = 100.0
     if request.method == 'POST':
         name = request.form['name']
+        quantity = float(request.form['quantity'])
         try:
             info = fetch_nutrition(name)
-            calories = float(info['calories'])
-            protein = float(info['protein'])
-            carbs = float(info['carbs'])
-            fat = float(info['fat'])
+            factor = quantity / 100.0
+            calories = float(info['calories']) * factor
+            protein = float(info['protein']) * factor
+            carbs = float(info['carbs']) * factor
+            fat = float(info['fat']) * factor
             nutriscore = info.get('nutriscore')
-            add_food(name, calories, protein, carbs, fat, nutriscore)
+            add_food(name, calories, protein, carbs, fat, quantity, nutriscore)
             return redirect(url_for('index'))
         except Exception as exc:
             # Log the error on the server and display a message to the user
             print(f"Erreur lors de l'ajout d'aliment: {exc}")
             error = "Impossible de récupérer les informations nutritionnelles."
-    return render_template('add.html', error=error, name=name)
+    return render_template('add.html', error=error, name=name, quantity=quantity)
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():

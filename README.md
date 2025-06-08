@@ -1,6 +1,6 @@
 # Suivi des nutriments
 
-Cette application web permet de suivre la consommation quotidienne de nutriments. Vous indiquez simplement le nom d'un aliment et l'application récupère automatiquement ses valeurs nutritionnelles (calories, protéines, glucides, lipides) ainsi que son Nutri-score grâce au service OpenRouter. Les totaux journaliers sont affichés sur la page d'accueil et vous pouvez définir une limite de calories dans la page des paramètres.
+Cette application web permet de suivre la consommation quotidienne de nutriments. Vous indiquez le nom et la quantité d'un aliment et l'application récupère automatiquement ses valeurs nutritionnelles (calories, protéines, glucides, lipides) ainsi que son Nutri-score grâce au service OpenRouter. Les totaux journaliers sont affichés sur la page d'accueil et vous pouvez définir une limite de calories dans la page des paramètres. Une animation de chargement apparaît pendant la récupération des données pour indiquer que l'enregistrement est en cours.
 
 Le projet est prêt à être déployé sur [Render](https://render.com/).
 
