@@ -68,6 +68,7 @@ def fetch_nutrition(name):
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise RuntimeError("OPENROUTER_API_KEY not set")
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -83,21 +84,26 @@ def fetch_nutrition(name):
         "model": "microsoft/phi-4-reasoning:free",
         "messages": [{"role": "user", "content": prompt}],
     }
-    resp = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers=headers,
-        json=data,
-        timeout=15,
-    )
-    resp.raise_for_status()
-    text = resp.json()["choices"][0]["message"]["content"]
+
+    try:
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        text = resp.json()["choices"][0]["message"]["content"]
+    except Exception as exc:  # network or API error
+        raise RuntimeError("Erreur lors de la requête OpenRouter") from exc
+
     # parfois la réponse contient du texte en plus autour de l'objet JSON.
-    start = text.find("{")
-    if start == -1:
+    match = re.search(r"{.*}", text, re.S)
+    if not match:
         raise ValueError("Réponse inattendue d'OpenRouter")
     decoder = JSONDecoder()
     try:
-        obj, _ = decoder.raw_decode(text[start:])
+        obj, _ = decoder.raw_decode(match.group(0))
     except JSONDecodeError as exc:
         raise ValueError("Impossible de parser la réponse d'OpenRouter") from exc
     return obj
@@ -136,17 +142,24 @@ def index():
 
 @app.route('/add', methods=['GET', 'POST'])
 def add():
+    error = None
+    name = ""
     if request.method == 'POST':
         name = request.form['name']
-        info = fetch_nutrition(name)
-        calories = float(info['calories'])
-        protein = float(info['protein'])
-        carbs = float(info['carbs'])
-        fat = float(info['fat'])
-        nutriscore = info.get('nutriscore')
-        add_food(name, calories, protein, carbs, fat, nutriscore)
-        return redirect(url_for('index'))
-    return render_template('add.html')
+        try:
+            info = fetch_nutrition(name)
+            calories = float(info['calories'])
+            protein = float(info['protein'])
+            carbs = float(info['carbs'])
+            fat = float(info['fat'])
+            nutriscore = info.get('nutriscore')
+            add_food(name, calories, protein, carbs, fat, nutriscore)
+            return redirect(url_for('index'))
+        except Exception as exc:
+            # Log the error on the server and display a message to the user
+            print(f"Erreur lors de l'ajout d'aliment: {exc}")
+            error = "Impossible de récupérer les informations nutritionnelles."
+    return render_template('add.html', error=error, name=name)
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
