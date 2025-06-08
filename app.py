@@ -84,7 +84,7 @@ def fetch_nutrition(name):
         " Reponds en JSON avec les cles calories, protein, carbs, fat et nutriscore."
     )
     data = {
-        "model": "microsoft/phi-4-reasoning:free",
+        "model": "google/gemma-3-27b-it:free",
         "messages": [{"role": "user", "content": prompt}],
     }
 
