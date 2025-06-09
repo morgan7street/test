@@ -70,6 +70,29 @@ def ensure_session():
 
 # Helper functions
 
+def normalize_nutriscore(score):
+    """Convert numeric nutri-score to letter according to official ranges."""
+    if score is None:
+        return None
+    s = str(score).strip()
+    if not s:
+        return None
+    if s.isalpha() and len(s) == 1:
+        return s.upper()
+    try:
+        value = float(s)
+    except ValueError:
+        return s.upper()
+    if value <= -1:
+        return 'A'
+    if value <= 2:
+        return 'B'
+    if value <= 10:
+        return 'C'
+    if value <= 18:
+        return 'D'
+    return 'E'
+
 def get_calorie_limit():
     conn = get_db_connection()
     cur = conn.execute("SELECT calorie_limit FROM settings WHERE id=1")
@@ -106,8 +129,12 @@ def fetch_nutrition(name, quantity, unit):
     # Construction de la charge utile pour OpenRouter
     # dictionnaire pour l'appel OpenRouter
     payload = {
-        "model": "google/gemma-3-27b-it:free",
-        "messages": [{"role": "user", "content": prompt}],
+    obj['nutriscore'] = normalize_nutriscore(obj.get('nutriscore'))
+    obj = decoder.raw_decode(match.group(0))[0]
+    obj['nutriscore'] = normalize_nutriscore(obj.get('nutriscore'))
+    return obj
+        "nutriscore": normalize_nutriscore(product.get("nutriscore_grade")),
+    info['nutriscore'] = normalize_nutriscore(info.get('nutriscore'))
         "max_tokens": 200,
     }
 
@@ -286,7 +313,7 @@ def add():
                     'carbs': auto_carbs,
                     'fat': auto_fat,
                     'fiber': auto_fiber,
-                    'nutriscore': auto_score,
+                    'nutriscore': normalize_nutriscore(auto_score),
                 }
             elif barcode:
                 info = lookup_barcode(barcode)
@@ -298,6 +325,8 @@ def add():
                     name = info['name']
             else:
                 info = fetch_nutrition(name, 100.0, 'g')
+
+            info['nutriscore'] = normalize_nutriscore(info.get('nutriscore'))
 
             factor = quantity / 100.0
             calories = float(info.get('calories', 0)) * factor

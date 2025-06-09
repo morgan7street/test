@@ -95,6 +95,19 @@ const autoFat = document.getElementById('auto_fat');
 const autoFiber = document.getElementById('auto_fiber');
 const autoScore = document.getElementById('auto_nutriscore');
 const manualBtn = document.getElementById('manual-btn');
+const loading = document.getElementById('loading');
+
+function getNutriScoreLetter(score) {
+  const val = Number(score);
+  if (!isNaN(val)) {
+    if (val <= -1) return 'A';
+    if (val <= 2) return 'B';
+    if (val <= 10) return 'C';
+    if (val <= 18) return 'D';
+    return 'E';
+  }
+  return (score || '').toString().toUpperCase();
+}
 photoBtn.addEventListener('click', () => {
   photoInput.click();
 });
@@ -104,6 +117,7 @@ photoInput.addEventListener('change', () => {
   if (!file) return;
   nameField.style.display = 'none';
   summary.style.display = 'block';
+  loading.style.display = 'block';
   const fd = new FormData();
   fd.append('photo', file);
   fetch('{{ url_for('recognize_route') }}', {method:'POST', body: fd})
@@ -116,10 +130,11 @@ photoInput.addEventListener('change', () => {
       autoCarbs.value = data.carbs || '';
       autoFat.value = data.fat || '';
       autoFiber.value = data.fiber || '';
-      autoScore.value = data.nutriscore || '';
-      summary.textContent = `${data.name} - ${data.calories} kcal/100g`;
+      autoScore.value = getNutriScoreLetter(data.nutriscore);
+      summary.textContent = `${data.name} - ${data.calories} kcal/100g - Nutri-score ${autoScore.value}`;
     })
-    .catch(err => { summary.textContent = 'Erreur reconnaissance'; console.error(err); });
+    .catch(err => { summary.textContent = 'Erreur reconnaissance'; console.error(err); })
+    .finally(() => { loading.style.display = 'none'; });
 });
 
 manualBtn.addEventListener('click', () => {
@@ -129,6 +144,7 @@ manualBtn.addEventListener('click', () => {
   autoFat.value = autoFiber.value = autoScore.value = '';
   photoInput.value = '';
   photoName.textContent = '';
+  loading.style.display = 'none';
 });
 </script>
 </body>
