@@ -21,11 +21,9 @@
     <div class="mb-3">
       <label class="form-label">Unité</label>
       <select name="unit" class="form-select">
-        <option value="g" {% if unit=='g' %}selected{% endif %}>grammes</option>
-        <option value="banane" {% if unit=='banane' %}selected{% endif %}>banane</option>
-        <option value="oeuf" {% if unit=='oeuf' %}selected{% endif %}>œuf</option>
-        <option value="pomme" {% if unit=='pomme' %}selected{% endif %}>pomme</option>
-        <option value="orange" {% if unit=='orange' %}selected{% endif %}>orange</option>
+        <option value="g" {% if unit=='g' %}selected{% endif %}>grammes (g)</option>
+        <option value="mL" {% if unit=='mL' %}selected{% endif %}>millilitres (mL)</option>
+        <option value="P" {% if unit=='P' %}selected{% endif %}>pièce (P)</option>
       </select>
     </div>
     {% if error %}

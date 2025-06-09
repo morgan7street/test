@@ -35,7 +35,7 @@
         <th>Glucides</th>
         <th>Lipides</th>
         <th>Fibres</th>
-        <th>Quantité (g)</th>
+        <th>Quantité</th>
         <th>Nutri-score</th>
         <th></th>
       </tr>
@@ -49,7 +49,7 @@
         <td>{{ food['carbs']|round(2) }}</td>
         <td>{{ food['fat']|round(2) }}</td>
         <td>{{ food['fiber']|round(2) }}</td>
-        <td>{{ food['quantity']|round(2) }}</td>
+        <td>{{ food['quantity']|round(2) }} {{ food['unit'] }}</td>
         <td>{{ food['nutriscore'] }}</td>
         <td>
           <form action="{{ url_for('delete', food_id=food['id']) }}" method="post" style="display:inline;">

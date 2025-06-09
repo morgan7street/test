@@ -12,13 +12,8 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-key")
 DATABASE = Path('nutrients.db')
 
-# correspondance unité -> poids estimé en grammes
-UNIT_TO_GRAMS = {
-    'banane': 120,
-    'oeuf': 50,
-    'pomme': 150,
-    'orange': 140,
-}
+# unités acceptées
+VALID_UNITS = {'g', 'mL', 'P'}
 
 # Database helpers
 
@@ -41,10 +36,13 @@ def init_db():
                 fat REAL NOT NULL,
                 fiber REAL NOT NULL,
                 quantity REAL NOT NULL,
+                unit TEXT NOT NULL DEFAULT 'g',
                 nutriscore TEXT,
                 created_at DATE DEFAULT (DATE('now'))
             );"""
     )
+    if 'unit' not in cols:
+        c.execute("ALTER TABLE food ADD COLUMN unit TEXT NOT NULL DEFAULT 'g'")
     c.execute(
         """CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -76,8 +74,8 @@ def set_calorie_limit(value):
     conn.commit()
     conn.close()
 
-def fetch_nutrition(name):
-    """Utilise OpenRouter pour obtenir la valeur nutritionnelle et NutriScore d'un aliment."""
+def fetch_nutrition(name, quantity, unit):
+    """Use OpenRouter to obtain nutrition facts and NutriScore for a given amount of food."""
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise RuntimeError("OPENROUTER_API_KEY not set")
@@ -88,31 +86,29 @@ def fetch_nutrition(name):
         "HTTP-Referer": "https://example.com",
         "X-Title": "Nutrient Tracker",
     }
+    if unit == 'P':
+        qty_str = f"{quantity} piece"
+    else:
+        qty_str = f"{quantity} {unit}"
     prompt = (
-        "Donne la valeur nutritionnelle pour 100g de "
-        f"{name} en calories, proteines, glucides, lipides et fibres ainsi que le Nutri-score (A-E)."
+        f"Donne la valeur nutritionnelle pour {qty_str} de {name} en calories, proteines, glucides, lipides et fibres ainsi que le Nutri-score (A-E)."
         " Reponds en JSON avec les cles calories, protein, carbs, fat, fiber et nutriscore."
     )
     data = {
         "messages": [
             {"role": "user", "content": prompt}
-        ]
-    }
-    try:
-        resp = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            data=json.dumps(data)
-        )
-        resp.raise_for_status()
-        text = resp.json()["choices"][0]["message"]["content"]
-    except Exception as exc:
-        raise RuntimeError("Erreur lors de la requête OpenRouter") from exc
-
-    match = re.search(r"{.*}", text, re.S)
-    if not match:
-        raise ValueError("Réponse inattendue d'OpenRouter")
-    decoder = JSONDecoder()
+def add_food(session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore):
+        "INSERT INTO food (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore),
+        if units not in VALID_UNITS:
+            error = "Unité inconnue"
+            info = fetch_nutrition(name, quantity, units)
+            calories = float(info['calories'])
+            protein = float(info['protein'])
+            carbs = float(info['carbs'])
+            fat = float(info['fat'])
+            fiber = float(info.get('fiber', 0))
+            add_food(session['session_id'], name, calories, protein, carbs, fat, fiber, quantity, units, nutriscore)
     try:
         obj, _ = decoder.raw_decode(match.group(0))
     except JSONDecodeError as exc:
