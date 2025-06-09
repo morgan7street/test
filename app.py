@@ -129,7 +129,9 @@ def fetch_nutrition(name, quantity, unit):
     # Construction de la charge utile pour OpenRouter
     # dictionnaire pour l'appel OpenRouter
     payload = {
-    obj['nutriscore'] = normalize_nutriscore(obj.get('nutriscore'))
+        raise ValueError(
+            "Impossible de parser la réponse d'OpenRouter"
+        ) from exc
     obj = decoder.raw_decode(match.group(0))[0]
     obj['nutriscore'] = normalize_nutriscore(obj.get('nutriscore'))
     return obj
