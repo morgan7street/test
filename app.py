@@ -129,14 +129,8 @@ def fetch_nutrition(name, quantity, unit):
     # Construction de la charge utile pour OpenRouter
     # dictionnaire pour l'appel OpenRouter
     payload = {
-        raise ValueError(
-            "Impossible de parser la réponse d'OpenRouter"
-        ) from exc
-    obj = decoder.raw_decode(match.group(0))[0]
-    obj['nutriscore'] = normalize_nutriscore(obj.get('nutriscore'))
-    return obj
-        "nutriscore": normalize_nutriscore(product.get("nutriscore_grade")),
-    info['nutriscore'] = normalize_nutriscore(info.get('nutriscore'))
+        "model": "google/gemma-3-27b-it:free",
+        "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 200,
     }
 
