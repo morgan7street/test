@@ -18,12 +18,48 @@
   <div class="mb-4">
     <h2 class="h5">Minuterie hydrique</h2>
     <p id="water-timer" class="fs-4">--:--</p>
+    <div class="mb-2">
+      <label class="form-label">Durée initiale (min)</label>
+      <input id="water-duration" type="number" class="form-control w-auto d-inline-block ms-2" value="15">
+    </div>
+    <div class="form-check mb-2">
+      <input id="water-repeat" class="form-check-input" type="checkbox">
+      <label class="form-check-label" for="water-repeat">Répéter ce minuteur</label>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Intervalle</label>
+      <input id="water-interval" type="number" class="form-control w-auto d-inline-block ms-2" value="120">
+      <select id="water-unit" class="form-select w-auto d-inline-block ms-2">
+        <option value="minutes">minutes</option>
+        <option value="heures">heures</option>
+        <option value="jour">quotidien</option>
+        <option value="semaine">hebdomadaire</option>
+      </select>
+    </div>
     <button id="start-water" class="btn btn-primary me-2">Démarrer</button>
     <button id="stop-water" class="btn btn-secondary">Arrêter</button>
   </div>
   <div class="mb-4">
     <h2 class="h5">Minuterie mouvement</h2>
     <p id="move-timer" class="fs-4">--:--</p>
+    <div class="mb-2">
+      <label class="form-label">Durée initiale (min)</label>
+      <input id="move-duration" type="number" class="form-control w-auto d-inline-block ms-2" value="30">
+    </div>
+    <div class="form-check mb-2">
+      <input id="move-repeat" class="form-check-input" type="checkbox">
+      <label class="form-check-label" for="move-repeat">Répéter ce minuteur</label>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Intervalle</label>
+      <input id="move-interval" type="number" class="form-control w-auto d-inline-block ms-2" value="180">
+      <select id="move-unit" class="form-select w-auto d-inline-block ms-2">
+        <option value="minutes">minutes</option>
+        <option value="heures">heures</option>
+        <option value="jour">quotidien</option>
+        <option value="semaine">hebdomadaire</option>
+      </select>
+    </div>
     <button id="start-move" class="btn btn-primary me-2">Démarrer</button>
     <button id="stop-move" class="btn btn-secondary">Arrêter</button>
   </div>
@@ -52,31 +88,76 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-function createTimer(display, intervalMinutes) {
+function parseInterval(value, unit) {
+  value = Number(value);
+  switch (unit) {
+    case 'minutes':
+      return value * 60;
+    case 'heures':
+      return value * 3600;
+    case 'jour':
+      return 86400;
+    case 'semaine':
+      return 604800;
+    default:
+      return 0;
+  }
+}
+
+function createTimer(options) {
+  const { display, durInput, repeatChk, intervalInput, unitSelect } = options;
   let timerId = null;
-  let remaining = intervalMinutes * 60;
+  let remaining = 0;
+  let intervalSec = 0;
+
   function update() {
-    const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
-    const seconds = String(remaining % 60).padStart(2, '0');
-    display.textContent = `${minutes}:${seconds}`;
-    if (remaining === 0) {
+    const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const s = String(remaining % 60).padStart(2, '0');
+    display.textContent = `${m}:${s}`;
+    if (remaining <= 0) {
       clearInterval(timerId);
       alert('Temps écoulé !');
+      if (repeatChk.checked && intervalSec > 0) {
+        remaining = intervalSec;
+        timerId = setInterval(update, 1000);
+      }
+      return;
     }
-    remaining--; 
+    remaining--;
   }
-  return {
-    start() {
-      clearInterval(timerId);
-      remaining = intervalMinutes * 60;
-      update();
-      timerId = setInterval(update, 1000);
-    },
-    stop() { clearInterval(timerId); display.textContent = '--:--'; }
-  };
+
+  function start() {
+    clearInterval(timerId);
+    remaining = Number(durInput.value) * 60;
+    intervalSec = parseInterval(intervalInput.value, unitSelect.value);
+    update();
+    timerId = setInterval(update, 1000);
+  }
+
+  function stop() {
+    clearInterval(timerId);
+    display.textContent = '--:--';
+  }
+
+  return { start, stop };
 }
-const waterTimer = createTimer(document.getElementById('water-timer'), 30);
-const moveTimer = createTimer(document.getElementById('move-timer'), 60);
+
+const waterTimer = createTimer({
+  display: document.getElementById('water-timer'),
+  durInput: document.getElementById('water-duration'),
+  repeatChk: document.getElementById('water-repeat'),
+  intervalInput: document.getElementById('water-interval'),
+  unitSelect: document.getElementById('water-unit')
+});
+
+const moveTimer = createTimer({
+  display: document.getElementById('move-timer'),
+  durInput: document.getElementById('move-duration'),
+  repeatChk: document.getElementById('move-repeat'),
+  intervalInput: document.getElementById('move-interval'),
+  unitSelect: document.getElementById('move-unit')
+});
+
 document.getElementById('start-water').onclick = () => waterTimer.start();
 document.getElementById('stop-water').onclick = () => waterTimer.stop();
 document.getElementById('start-move').onclick = () => moveTimer.start();
