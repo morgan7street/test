@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import sqlite3
 from pathlib import Path
 import os
@@ -202,6 +202,19 @@ def lookup_barcode(code):
         "nutriscore": product.get("nutriscore_grade"),
     }
 
+
+@app.route('/recognize', methods=['POST'])
+def recognize_route():
+    """AJAX endpoint returning recognition results for an uploaded photo."""
+    photo = request.files.get('photo')
+    if not photo:
+        return jsonify({'error': 'no photo'}), 400
+    try:
+        info = recognize_food(photo.read())
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+    return jsonify(info)
+
 def add_food(session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore):
     conn = get_db_connection()
     conn.execute(
@@ -249,6 +262,13 @@ def add():
         unit = request.form.get('unit', 'g')
         barcode = request.form.get('barcode', '').strip()
         photo = request.files.get('photo')
+        auto_name = request.form.get('auto_name')
+        auto_calories = request.form.get('auto_calories')
+        auto_protein = request.form.get('auto_protein')
+        auto_carbs = request.form.get('auto_carbs')
+        auto_fat = request.form.get('auto_fat')
+        auto_fiber = request.form.get('auto_fiber')
+        auto_score = request.form.get('auto_nutriscore')
 
         if unit not in VALID_UNITS:
             error = "Unité inconnue"
@@ -258,7 +278,17 @@ def add():
             quantity = quantity * weight
 
         try:
-            if barcode:
+            if auto_name:
+                name = auto_name
+                info = {
+                    'calories': auto_calories,
+                    'protein': auto_protein,
+                    'carbs': auto_carbs,
+                    'fat': auto_fat,
+                    'fiber': auto_fiber,
+                    'nutriscore': auto_score,
+                }
+            elif barcode:
                 info = lookup_barcode(barcode)
                 if info.get('name'):
                     name = info['name']

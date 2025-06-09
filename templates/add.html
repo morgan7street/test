@@ -5,14 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ajouter un aliment</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+  <style>
+    .icon-btn .material-symbols-outlined {font-size:24px;vertical-align:middle;}
+  </style>
 </head>
 <body class="bg-light">
 <div class="container py-4">
   <h1 class="mb-4">Ajouter un aliment</h1>
   <form method="post" enctype="multipart/form-data" onsubmit="document.getElementById('loading').style.display='block'">
-    <div class="mb-3">
+    <div class="mb-3" id="name-field">
       <label class="form-label">Nom</label>
-      <input type="text" name="name" value="{{ name }}" class="form-control" required>
+      <input type="text" name="name" value="{{ name }}" class="form-control">
+    </div>
+    <div class="mb-3">
+      <button type="button" class="btn btn-outline-secondary icon-btn" id="manual-btn"><span class="material-symbols-outlined">edit</span></button>
     </div>
     <div class="mb-3">
       <label class="form-label">Quantité</label>
@@ -29,12 +36,20 @@
     <div class="mb-3">
       <label class="form-label d-block">Photo</label>
       <input type="file" name="photo" accept="image/*" capture="environment" id="photoInput" style="display:none">
-      <button type="button" class="btn btn-outline-secondary" id="photo-btn">Prendre ou importer une photo</button>
+      <button type="button" class="btn btn-outline-secondary icon-btn" id="photo-btn"><span class="material-symbols-outlined">photo_camera</span></button>
       <span id="photo-name" class="ms-2 text-muted"></span>
     </div>
+    <div id="summary" class="mb-3" style="display:none"></div>
+    <input type="hidden" name="auto_name" id="auto_name">
+    <input type="hidden" name="auto_calories" id="auto_calories">
+    <input type="hidden" name="auto_protein" id="auto_protein">
+    <input type="hidden" name="auto_carbs" id="auto_carbs">
+    <input type="hidden" name="auto_fat" id="auto_fat">
+    <input type="hidden" name="auto_fiber" id="auto_fiber">
+    <input type="hidden" name="auto_nutriscore" id="auto_nutriscore">
     <input type="hidden" name="barcode" id="barcode" value="{{ barcode }}">
     <div class="mb-3">
-      <button type="button" class="btn btn-outline-secondary" id="scan-btn">Scanner un code-barres</button>
+      <button type="button" class="btn btn-outline-secondary icon-btn" id="scan-btn"><span class="material-symbols-outlined">qr_code_scanner</span></button>
       <div id="scanner" style="width:300px;display:none;" class="mt-2"></div>
     </div>
     {% if error %}
@@ -70,12 +85,50 @@ btn.addEventListener('click', () => {
 const photoBtn = document.getElementById('photo-btn');
 const photoInput = document.getElementById('photoInput');
 const photoName = document.getElementById('photo-name');
+const nameField = document.getElementById('name-field');
+const summary = document.getElementById('summary');
+const autoName = document.getElementById('auto_name');
+const autoCalories = document.getElementById('auto_calories');
+const autoProtein = document.getElementById('auto_protein');
+const autoCarbs = document.getElementById('auto_carbs');
+const autoFat = document.getElementById('auto_fat');
+const autoFiber = document.getElementById('auto_fiber');
+const autoScore = document.getElementById('auto_nutriscore');
+const manualBtn = document.getElementById('manual-btn');
 photoBtn.addEventListener('click', () => {
   photoInput.click();
 });
 photoInput.addEventListener('change', () => {
   const file = photoInput.files[0];
   photoName.textContent = file ? file.name : '';
+  if (!file) return;
+  nameField.style.display = 'none';
+  summary.style.display = 'block';
+  const fd = new FormData();
+  fd.append('photo', file);
+  fetch('{{ url_for('recognize_route') }}', {method:'POST', body: fd})
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { summary.textContent = data.error; return; }
+      autoName.value = data.name || '';
+      autoCalories.value = data.calories || '';
+      autoProtein.value = data.protein || '';
+      autoCarbs.value = data.carbs || '';
+      autoFat.value = data.fat || '';
+      autoFiber.value = data.fiber || '';
+      autoScore.value = data.nutriscore || '';
+      summary.textContent = `${data.name} - ${data.calories} kcal/100g`;
+    })
+    .catch(err => { summary.textContent = 'Erreur reconnaissance'; console.error(err); });
+});
+
+manualBtn.addEventListener('click', () => {
+  nameField.style.display = 'block';
+  summary.style.display = 'none';
+  autoName.value = autoCalories.value = autoProtein.value = autoCarbs.value = '';
+  autoFat.value = autoFiber.value = autoScore.value = '';
+  photoInput.value = '';
+  photoName.textContent = '';
 });
 </script>
 </body>
