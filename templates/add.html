@@ -27,8 +27,10 @@
       </select>
     </div>
     <div class="mb-3">
-      <label class="form-label">Photo</label>
-      <input type="file" name="photo" accept="image/*" class="form-control">
+      <label class="form-label d-block">Photo</label>
+      <input type="file" name="photo" accept="image/*" capture="environment" id="photoInput" style="display:none">
+      <button type="button" class="btn btn-outline-secondary" id="photo-btn">Prendre ou importer une photo</button>
+      <span id="photo-name" class="ms-2 text-muted"></span>
     </div>
     <input type="hidden" name="barcode" id="barcode" value="{{ barcode }}">
     <div class="mb-3">
@@ -63,6 +65,17 @@ btn.addEventListener('click', () => {
     html5.stop();
     scanner.style.display = 'none';
   }).catch(err => {console.error(err);});
+});
+
+const photoBtn = document.getElementById('photo-btn');
+const photoInput = document.getElementById('photoInput');
+const photoName = document.getElementById('photo-name');
+photoBtn.addEventListener('click', () => {
+  photoInput.click();
+});
+photoInput.addEventListener('change', () => {
+  const file = photoInput.files[0];
+  photoName.textContent = file ? file.name : '';
 });
 </script>
 </body>
