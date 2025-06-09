@@ -15,8 +15,7 @@
     "react-router-dom": "^6.20.1",
     "lucide-react": "^0.294.0",
     "framer-motion": "^10.16.16",
-    "html5-qrcode": "^2.3.8",
-    "@types/html5-qrcode": "^2.3.8"
+    "html5-qrcode": "^2.3.8"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
