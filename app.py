@@ -106,7 +106,7 @@ def fetch_nutrition(name, quantity, unit):
     # Construction de la charge utile pour OpenRouter
     # dictionnaire pour l'appel OpenRouter
     payload = {
-        "model": "openai/gpt-3.5-turbo",
+        "model": "google/gemma-3-27b-it:free",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 200,
     }
@@ -152,7 +152,7 @@ def recognize_food(image_bytes):
         "protein, carbs, fat, fiber et nutriscore."
     )
     payload = {
-        "model": "openai/gpt-4-vision-preview",
+        "model": "google/gemma-3-27b-it:free",
         "messages": [
             {
                 "role": "user",
