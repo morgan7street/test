@@ -79,6 +79,7 @@ btn.addEventListener('click', () => {
     document.getElementById('barcode').value = code;
     html5.stop();
     scanner.style.display = 'none';
+    fetchBarcodeInfo(code);
   }).catch(err => {console.error(err);});
 });
 
@@ -107,6 +108,35 @@ function getNutriScoreLetter(score) {
     return 'E';
   }
   return (score || '').toString().toUpperCase();
+}
+
+async function fetchBarcodeInfo(code) {
+  nameField.style.display = 'none';
+  summary.style.display = 'block';
+  loading.style.display = 'block';
+  try {
+    const resp = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+    const data = await resp.json();
+    const product = data.product;
+    if (!product) {
+      summary.textContent = 'Produit non reconnu, veuillez réessayer ou entrer manuellement.';
+      return;
+    }
+    const nutr = product.nutriments || {};
+    autoName.value = product.product_name || '';
+    autoCalories.value = nutr['energy-kcal_100g'] || '';
+    autoProtein.value = nutr['proteins_100g'] || '';
+    autoCarbs.value = nutr['carbohydrates_100g'] || '';
+    autoFat.value = nutr['fat_100g'] || '';
+    autoFiber.value = nutr['fiber_100g'] || '';
+    autoScore.value = getNutriScoreLetter(product.nutriscore_grade);
+    summary.textContent = `${autoName.value} - ${autoCalories.value} kcal/100g - Nutri-score ${autoScore.value}`;
+  } catch (err) {
+    console.error(err);
+    summary.textContent = 'Erreur lors du chargement du produit';
+  } finally {
+    loading.style.display = 'none';
+  }
 }
 photoBtn.addEventListener('click', () => {
   photoInput.click();
