@@ -14,6 +14,11 @@ DATABASE = Path('nutrients.db')
 
 # unités acceptées
 VALID_UNITS = {'g', 'mL', 'P'}
+UNIT_TO_GRAMS = {
+    'g': 1.0,
+    'mL': 1.0,
+    'P': 100.0,
+}
 
 # Database helpers
 
@@ -97,27 +102,37 @@ def fetch_nutrition(name, quantity, unit):
     # Construction de la charge utile pour OpenRouter
     # dictionnaire pour l'appel OpenRouter
     payload = {
+        "model": "openai/gpt-3.5-turbo",
         "messages": [{"role": "user", "content": prompt}],
-        if units not in VALID_UNITS:
-            error = "Unité inconnue"
-            info = fetch_nutrition(name, quantity, units)
-            calories = float(info['calories'])
-            protein = float(info['protein'])
-            carbs = float(info['carbs'])
-            fat = float(info['fat'])
-            fiber = float(info.get('fiber', 0))
-            add_food(session['session_id'], name, calories, protein, carbs, fat, fiber, quantity, units, nutriscore)
+        "max_tokens": 200,
+    }
+
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers=headers,
+        data=json.dumps(payload),
+        timeout=30,
+    )
+    response.raise_for_status()
+    data = response.json()
+    content = data["choices"][0]["message"]["content"]
+
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if not match:
+        raise ValueError("Réponse OpenRouter inattendue: " + content)
+
+    decoder = JSONDecoder()
     try:
-        obj, _ = decoder.raw_decode(match.group(0))
+        obj = decoder.raw_decode(match.group(0))[0]
     except JSONDecodeError as exc:
         raise ValueError("Impossible de parser la réponse d'OpenRouter") from exc
     return obj
 
-def add_food(session_id, name, calories, protein, carbs, fat, fiber, quantity, nutriscore):
+def add_food(session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore):
     conn = get_db_connection()
     conn.execute(
-        "INSERT INTO food (session_id, name, calories, protein, carbs, fat, fiber, quantity, nutriscore) VALUES (?,?,?,?,?,?,?,?,?)",
-        (session_id, name, calories, protein, carbs, fat, fiber, quantity, nutriscore),
+        "INSERT INTO food (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore),
     )
     conn.commit()
     conn.close()
@@ -157,14 +172,14 @@ def add():
         name = request.form['name']
         quantity = float(request.form['quantity'])
         unit = request.form.get('unit', 'g')
+        if unit not in VALID_UNITS:
+            error = "Unité inconnue"
+            return render_template('add.html', error=error, name=name, quantity=quantity, unit=unit)
         if unit != 'g':
-            weight = UNIT_TO_GRAMS.get(unit)
-            if weight is None:
-                error = "Unité inconnue"
-                return render_template('add.html', error=error, name=name, quantity=quantity, unit=unit)
+            weight = UNIT_TO_GRAMS.get(unit, 1)
             quantity = quantity * weight
         try:
-            info = fetch_nutrition(name)
+            info = fetch_nutrition(name, 100.0, 'g')
             factor = quantity / 100.0
             calories = float(info['calories']) * factor
             protein = float(info['protein']) * factor
@@ -172,7 +187,7 @@ def add():
             fat = float(info['fat']) * factor
             fiber = float(info.get('fiber', 0)) * factor
             nutriscore = info.get('nutriscore')
-            add_food(session['session_id'], name, calories, protein, carbs, fat, fiber, quantity, nutriscore)
+            add_food(session['session_id'], name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore)
             return redirect(url_for('index'))
         except Exception as exc:
             print(f"Erreur lors de l'ajout d'aliment: {exc}")
