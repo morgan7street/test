@@ -95,10 +95,9 @@ def fetch_nutrition(name, quantity, unit):
         " Reponds en JSON avec les cles calories, protein, carbs, fat, fiber et nutriscore."
     )
     # Construction de la charge utile pour OpenRouter
+    # dictionnaire pour l'appel OpenRouter
     payload = {
-            json=payload,
-        "INSERT INTO food (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore),
+        "messages": [{"role": "user", "content": prompt}],
         if units not in VALID_UNITS:
             error = "Unité inconnue"
             info = fetch_nutrition(name, quantity, units)
