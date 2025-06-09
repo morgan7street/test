@@ -1,9 +1,9 @@
-import React from 'react'
+import { type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import BottomNavigation from './BottomNavigation'
 
 interface LayoutProps {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export default function Layout({ children }: LayoutProps) {

@@ -1,6 +1,5 @@
-import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Plus, Settings } from 'lucide-react'
+import { Home, Plus, Settings, ListPlus } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function BottomNavigation() {
@@ -10,6 +9,7 @@ export default function BottomNavigation() {
     { path: '/', icon: Home, label: 'Accueil' },
     { path: '/add', icon: Plus, label: 'Ajouter' },
     { path: '/settings', icon: Settings, label: 'Paramètres' },
+    { path: '/options', icon: ListPlus, label: 'Options+' },
   ]
 
   return (

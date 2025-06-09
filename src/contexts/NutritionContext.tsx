@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react'
 import { Food, DailyTotals, UserSettings } from '../types'
 
 interface NutritionContextType {
@@ -21,7 +21,7 @@ export function useNutrition() {
   return context
 }
 
-export function NutritionProvider({ children }: { children: React.ReactNode }) {
+export function NutritionProvider({ children }: { children: ReactNode }) {
   const [foods, setFoods] = useState<Food[]>([])
   const [settings, setSettings] = useState<UserSettings>({ calorieLimit: 2000 })
   const [isLoading, setIsLoading] = useState(false)
@@ -62,7 +62,7 @@ export function NutritionProvider({ children }: { children: React.ReactNode }) {
   }, [settings])
 
   // Calculate daily totals for today's foods
-  const dailyTotals: DailyTotals = React.useMemo(() => {
+  const dailyTotals: DailyTotals = useMemo(() => {
     const today = new Date().toDateString()
     const todayFoods = foods.filter(food => 
       food.createdAt.toDateString() === today
