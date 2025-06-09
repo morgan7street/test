@@ -15,11 +15,6 @@ DATABASE = Path('nutrients.db')
 
 # unités acceptées
 VALID_UNITS = {'g', 'mL', 'P'}
-UNIT_TO_GRAMS = {
-    'g': 1.0,
-    'mL': 1.0,
-    'P': 100.0,
-}
 
 # Database helpers
 
@@ -154,6 +149,49 @@ def fetch_nutrition(name, quantity, unit):
     except JSONDecodeError as exc:
         raise ValueError("Impossible de parser la réponse d'OpenRouter") from exc
     return obj
+
+
+def estimate_weight(name, quantity, unit):
+    """Return an estimated weight in grams for the given unit and amount."""
+    if unit == 'g':
+        return quantity
+
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY not set")
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://example.com",
+        "X-Title": "Nutrient Tracker",
+    }
+
+    prompt = (
+        "Quelle est l'estimation du poids en grammes pour :\n"
+        f"- Quantité : {quantity}\n"
+        f"- Unité : {unit}\n"
+        f"- Aliment : {name}\n"
+        "Réponds uniquement avec un nombre."
+    )
+    payload = {
+        "model": "google/gemma-3-27b-it:free",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 20,
+    }
+
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers=headers,
+        data=json.dumps(payload),
+        timeout=30,
+    )
+    response.raise_for_status()
+    content = response.json()["choices"][0]["message"]["content"]
+    match = re.search(r"[0-9]+(?:[.,][0-9]+)?", content)
+    if not match:
+        raise ValueError("Réponse OpenRouter inattendue: " + content)
+    return float(match.group(0).replace(',', '.'))
 
 def recognize_food(image_bytes):
     """Identify a food from an image using OpenRouter vision models."""
@@ -296,9 +334,6 @@ def add():
         if unit not in VALID_UNITS:
             error = "Unité inconnue"
             return render_template('add.html', error=error, name=name, quantity=quantity, unit=unit, barcode=barcode)
-        if unit != 'g':
-            weight = UNIT_TO_GRAMS.get(unit, 1)
-            quantity = quantity * weight
 
         try:
             if auto_name:
@@ -324,7 +359,11 @@ def add():
 
             info['nutriscore'] = normalize_nutriscore(info.get('nutriscore'))
 
-            factor = quantity / 100.0
+            weight_grams = quantity
+            if unit != 'g':
+                weight_grams = estimate_weight(name, quantity, unit)
+
+            factor = weight_grams / 100.0
             calories = float(info.get('calories', 0)) * factor
             protein = float(info.get('protein', 0)) * factor
             carbs = float(info.get('carbs', 0)) * factor
