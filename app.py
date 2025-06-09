@@ -105,8 +105,7 @@ def fetch_nutrition(name):
         f"{name} en calories, proteines, glucides, lipides et fibres ainsi que le Nutri-score (A-E)."
         " Reponds en JSON avec les cles calories, protein, carbs, fat, fiber et nutriscore."
     )
-    # Payload for the OpenRouter request
-    # Ensure brackets are balanced to avoid syntax errors
+    # Corps de la requête envoyé à OpenRouter
     data = {
 def add_food(session_id, name, calories, protein, carbs, fat, fiber, quantity, nutriscore):
         "INSERT INTO food (session_id, name, calories, protein, carbs, fat, fiber, quantity, nutriscore) VALUES (?,?,?,?,?,?,?,?,?)",
