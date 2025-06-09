@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -6,13 +6,15 @@ import { useNavigate } from 'react-router-dom'
 export default function Options() {
   const navigate = useNavigate()
 
-  const useTimer = (defaultDuration: number, defaultInterval: number) => {
+  const useTimer = (id: string, defaultDuration: number, defaultInterval: number) => {
     const [duration, setDuration] = useState(defaultDuration)
     const [interval, setIntervalValue] = useState(defaultInterval)
     const [unit, setUnit] = useState<'minutes' | 'heures' | 'jour' | 'semaine'>('heures')
     const [repeat, setRepeat] = useState(false)
     const [remaining, setRemaining] = useState(defaultDuration * 60)
     const [active, setActive] = useState(false)
+    const nextAlarmRef = useRef<number | null>(null)
+    const workerRef = useRef<Worker>()
 
     const parseInterval = (val: number, u: string) => {
       switch (u) {
@@ -29,26 +31,111 @@ export default function Options() {
       }
     }
 
+    const save = () => {
+      const data = {
+        id,
+        duration,
+        interval,
+        unit,
+        repeat,
+        next: nextAlarmRef.current,
+        active,
+      }
+      localStorage.setItem(`timer-${id}`, JSON.stringify(data))
+    }
+
+    const startWorker = (delay: number) => {
+      if (!workerRef.current) {
+        workerRef.current = new Worker(new URL('../timerWorker.ts', import.meta.url), { type: 'module' })
+        workerRef.current.onmessage = () => handleExpire()
+      }
+      workerRef.current.postMessage({ type: 'start', delay })
+    }
+
+    const stopWorker = () => {
+      workerRef.current?.postMessage({ type: 'stop' })
+    }
+
+    const playBeep = () => {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = 880
+      gain.gain.value = 0.2
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 1)
+    }
+
+    const handleExpire = () => {
+      playBeep()
+      if (repeat) {
+        const nextDelay = parseInterval(interval, unit) * 1000
+        nextAlarmRef.current = Date.now() + nextDelay
+        setRemaining(nextDelay / 1000)
+        startWorker(nextDelay)
+      } else {
+        setActive(false)
+        nextAlarmRef.current = null
+        stopWorker()
+      }
+      save()
+    }
+
     useEffect(() => {
       if (!active) return
-      if (remaining <= 0) {
-        alert('Temps écoulé !')
-        if (repeat) {
-          setRemaining(parseInterval(interval, unit))
-        } else {
-          setActive(false)
+      if (remaining <= 0) return
+      const idInterval = setInterval(() => setRemaining((r) => r - 1), 1000)
+      return () => clearInterval(idInterval)
+    }, [active, remaining])
+
+    useEffect(() => {
+      const stored = localStorage.getItem(`timer-${id}`)
+      if (stored) {
+        try {
+          const data = JSON.parse(stored)
+          setDuration(data.duration)
+          setIntervalValue(data.interval)
+          setUnit(data.unit)
+          setRepeat(data.repeat)
+          nextAlarmRef.current = data.next
+          if (data.active && data.next) {
+            const diff = data.next - Date.now()
+            if (diff > 0) {
+              setRemaining(Math.floor(diff / 1000))
+              setActive(true)
+              startWorker(diff)
+            } else {
+              handleExpire()
+            }
+          }
+        } catch (e) {
+          console.error(e)
         }
-        return
       }
-      const id = setInterval(() => setRemaining((r) => r - 1), 1000)
-      return () => clearInterval(id)
-    }, [active, remaining, repeat, interval, unit])
+    }, [])
+
+    useEffect(() => {
+      save()
+    }, [duration, interval, unit, repeat, active])
 
     const start = () => {
+      const delay = duration * 60 * 1000
       setRemaining(duration * 60)
       setActive(true)
+      nextAlarmRef.current = Date.now() + delay
+      startWorker(delay)
+      save()
     }
-    const stop = () => setActive(false)
+
+    const stop = () => {
+      setActive(false)
+      nextAlarmRef.current = null
+      stopWorker()
+      save()
+    }
 
     const display = `${String(Math.floor(remaining/60)).padStart(2,'0')}:${String(remaining%60).padStart(2,'0')}`
     return {
@@ -67,8 +154,8 @@ export default function Options() {
     }
   }
 
-  const water = useTimer(15, 120)
-  const move = useTimer(30, 180)
+  const water = useTimer('water', 15, 120)
+  const move = useTimer('move', 30, 180)
 
   return (
     <div className="p-6 space-y-6">
