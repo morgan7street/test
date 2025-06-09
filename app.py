@@ -46,6 +46,9 @@ def init_db():
                 created_at DATE DEFAULT (DATE('now'))
             );"""
     )
+    # Add missing columns when upgrading from older versions
+    c.execute("PRAGMA table_info(food)")
+    cols = [r[1] for r in c.fetchall()]
     if 'unit' not in cols:
         c.execute("ALTER TABLE food ADD COLUMN unit TEXT NOT NULL DEFAULT 'g'")
     c.execute(
