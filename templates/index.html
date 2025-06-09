@@ -14,15 +14,16 @@
     <a href="{{ url_for('settings') }}" class="btn btn-secondary">Paramètres</a>
   </div>
   <h2>Résumé du jour</h2>
-  <p>Calories totales&nbsp;: {{ totals[0] }} / {{ limit }}</p>
+  <p>Calories totales&nbsp;: {{ totals[0]|round(2) }} / {{ limit }}</p>
   <div class="progress mb-3" style="height: 20px;">
     {% set percent = (totals[0] / limit * 100) if limit else 0 %}
     <div class="progress-bar" role="progressbar" style="width: {{ percent }}%;" aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100"></div>
   </div>
   <ul class="list-unstyled mb-4">
-    <li><strong>Protéines&nbsp;:</strong> {{ totals[1] }} g</li>
-    <li><strong>Glucides&nbsp;:</strong> {{ totals[2] }} g</li>
-    <li><strong>Lipides&nbsp;:</strong> {{ totals[3] }} g</li>
+    <li><strong>Protéines&nbsp;:</strong> {{ totals[1]|round(2) }} g</li>
+    <li><strong>Glucides&nbsp;:</strong> {{ totals[2]|round(2) }} g</li>
+    <li><strong>Lipides&nbsp;:</strong> {{ totals[3]|round(2) }} g</li>
+    <li><strong>Fibres&nbsp;:</strong> {{ totals[4]|round(2) }} g</li>
   </ul>
   <div class="table-responsive">
   <table class="table table-striped">
@@ -33,20 +34,28 @@
         <th>Protéines</th>
         <th>Glucides</th>
         <th>Lipides</th>
+        <th>Fibres</th>
         <th>Quantité (g)</th>
         <th>Nutri-score</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
       {% for food in foods %}
       <tr>
         <td>{{ food['name'] }}</td>
-        <td>{{ food['calories'] }}</td>
-        <td>{{ food['protein'] }}</td>
-        <td>{{ food['carbs'] }}</td>
-        <td>{{ food['fat'] }}</td>
-        <td>{{ food['quantity'] }}</td>
+        <td>{{ food['calories']|round(2) }}</td>
+        <td>{{ food['protein']|round(2) }}</td>
+        <td>{{ food['carbs']|round(2) }}</td>
+        <td>{{ food['fat']|round(2) }}</td>
+        <td>{{ food['fiber']|round(2) }}</td>
+        <td>{{ food['quantity']|round(2) }}</td>
         <td>{{ food['nutriscore'] }}</td>
+        <td>
+          <form action="{{ url_for('delete', food_id=food['id']) }}" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
+          </form>
+        </td>
       </tr>
       {% endfor %}
     </tbody>

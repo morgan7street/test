@@ -15,8 +15,18 @@
       <input type="text" name="name" value="{{ name }}" class="form-control" required>
     </div>
     <div class="mb-3">
-      <label class="form-label">Quantité en grammes</label>
+      <label class="form-label">Quantité</label>
       <input type="number" step="0.01" name="quantity" value="{{ quantity }}" class="form-control" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Unité</label>
+      <select name="unit" class="form-select">
+        <option value="g" {% if unit=='g' %}selected{% endif %}>grammes</option>
+        <option value="banane" {% if unit=='banane' %}selected{% endif %}>banane</option>
+        <option value="oeuf" {% if unit=='oeuf' %}selected{% endif %}>œuf</option>
+        <option value="pomme" {% if unit=='pomme' %}selected{% endif %}>pomme</option>
+        <option value="orange" {% if unit=='orange' %}selected{% endif %}>orange</option>
+      </select>
     </div>
     {% if error %}
     <div class="alert alert-danger" role="alert">
