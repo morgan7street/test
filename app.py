@@ -397,6 +397,11 @@ def settings():
     current = get_calorie_limit()
     return render_template('settings.html', current=current)
 
+@app.route('/options')
+def options():
+    """Page contenant des minuteries d'hydratation et de mouvement."""
+    return render_template('options.html')
+
 # Initialise la base de données au démarrage de l'application
 init_db()
 
