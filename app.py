@@ -5,6 +5,7 @@ import os
 import json
 import requests
 import re
+import base64
 from json import JSONDecodeError, JSONDecoder
 from uuid import uuid4
 
@@ -14,6 +15,11 @@ DATABASE = Path('nutrients.db')
 
 # unités acceptées
 VALID_UNITS = {'g', 'mL', 'P'}
+UNIT_TO_GRAMS = {
+    'g': 1.0,
+    'mL': 1.0,
+    'P': 100.0,
+}
 
 # Database helpers
 
@@ -41,6 +47,9 @@ def init_db():
                 created_at DATE DEFAULT (DATE('now'))
             );"""
     )
+    # Add missing columns when upgrading from older versions
+    c.execute("PRAGMA table_info(food)")
+    cols = [r[1] for r in c.fetchall()]
     if 'unit' not in cols:
         c.execute("ALTER TABLE food ADD COLUMN unit TEXT NOT NULL DEFAULT 'g'")
     c.execute(
@@ -97,27 +106,107 @@ def fetch_nutrition(name, quantity, unit):
     # Construction de la charge utile pour OpenRouter
     # dictionnaire pour l'appel OpenRouter
     payload = {
+        "model": "openai/gpt-3.5-turbo",
         "messages": [{"role": "user", "content": prompt}],
-        if units not in VALID_UNITS:
-            error = "Unité inconnue"
-            info = fetch_nutrition(name, quantity, units)
-            calories = float(info['calories'])
-            protein = float(info['protein'])
-            carbs = float(info['carbs'])
-            fat = float(info['fat'])
-            fiber = float(info.get('fiber', 0))
-            add_food(session['session_id'], name, calories, protein, carbs, fat, fiber, quantity, units, nutriscore)
+        "max_tokens": 200,
+    }
+
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers=headers,
+        data=json.dumps(payload),
+        timeout=30,
+    )
+    response.raise_for_status()
+    data = response.json()
+    content = data["choices"][0]["message"]["content"]
+
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if not match:
+        raise ValueError("Réponse OpenRouter inattendue: " + content)
+
+    decoder = JSONDecoder()
     try:
-        obj, _ = decoder.raw_decode(match.group(0))
+        obj = decoder.raw_decode(match.group(0))[0]
     except JSONDecodeError as exc:
         raise ValueError("Impossible de parser la réponse d'OpenRouter") from exc
     return obj
 
-def add_food(session_id, name, calories, protein, carbs, fat, fiber, quantity, nutriscore):
+def recognize_food(image_bytes):
+    """Identify a food from an image using OpenRouter vision models."""
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY not set")
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://example.com",
+        "X-Title": "Nutrient Tracker",
+    }
+
+    encoded = base64.b64encode(image_bytes).decode()
+    prompt = (
+        "Decris cet aliment et fournis sa valeur nutritionnelle approximative pour 100g "
+        "(calories, proteines, glucides, lipides, fibres) en JSON avec les cles name, calories, "
+        "protein, carbs, fat, fiber et nutriscore."
+    )
+    payload = {
+        "model": "openai/gpt-4-vision-preview",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": f"data:image/jpeg;base64,{encoded}"},
+                ],
+            }
+        ],
+        "max_tokens": 300,
+    }
+
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers=headers,
+        data=json.dumps(payload),
+        timeout=60,
+    )
+    response.raise_for_status()
+    content = response.json()["choices"][0]["message"]["content"]
+
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if not match:
+        raise ValueError("Réponse OpenRouter inattendue: " + content)
+
+    decoder = JSONDecoder()
+    return decoder.raw_decode(match.group(0))[0]
+
+
+def lookup_barcode(code):
+    """Retrieve product info from OpenFoodFacts using a barcode."""
+    url = f"https://world.openfoodfacts.org/api/v0/product/{code}.json"
+    r = requests.get(url, timeout=20)
+    r.raise_for_status()
+    data = r.json()
+    product = data.get("product")
+    if not product:
+        raise ValueError("Produit introuvable")
+    nutr = product.get("nutriments", {})
+    return {
+        "name": product.get("product_name", ""),
+        "calories": nutr.get("energy-kcal_100g"),
+        "protein": nutr.get("proteins_100g"),
+        "carbs": nutr.get("carbohydrates_100g"),
+        "fat": nutr.get("fat_100g"),
+        "fiber": nutr.get("fiber_100g"),
+        "nutriscore": product.get("nutriscore_grade"),
+    }
+
+def add_food(session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore):
     conn = get_db_connection()
     conn.execute(
-        "INSERT INTO food (session_id, name, calories, protein, carbs, fat, fiber, quantity, nutriscore) VALUES (?,?,?,?,?,?,?,?,?)",
-        (session_id, name, calories, protein, carbs, fat, fiber, quantity, nutriscore),
+        "INSERT INTO food (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore),
     )
     conn.commit()
     conn.close()
@@ -153,31 +242,46 @@ def add():
     name = ""
     quantity = 100.0
     unit = 'g'
+    barcode = ''
     if request.method == 'POST':
-        name = request.form['name']
+        name = request.form.get('name', '')
         quantity = float(request.form['quantity'])
         unit = request.form.get('unit', 'g')
+        barcode = request.form.get('barcode', '').strip()
+        photo = request.files.get('photo')
+
+        if unit not in VALID_UNITS:
+            error = "Unité inconnue"
+            return render_template('add.html', error=error, name=name, quantity=quantity, unit=unit, barcode=barcode)
         if unit != 'g':
-            weight = UNIT_TO_GRAMS.get(unit)
-            if weight is None:
-                error = "Unité inconnue"
-                return render_template('add.html', error=error, name=name, quantity=quantity, unit=unit)
+            weight = UNIT_TO_GRAMS.get(unit, 1)
             quantity = quantity * weight
+
         try:
-            info = fetch_nutrition(name)
+            if barcode:
+                info = lookup_barcode(barcode)
+                if info.get('name'):
+                    name = info['name']
+            elif photo and photo.filename:
+                info = recognize_food(photo.read())
+                if info.get('name'):
+                    name = info['name']
+            else:
+                info = fetch_nutrition(name, 100.0, 'g')
+
             factor = quantity / 100.0
-            calories = float(info['calories']) * factor
-            protein = float(info['protein']) * factor
-            carbs = float(info['carbs']) * factor
-            fat = float(info['fat']) * factor
+            calories = float(info.get('calories', 0)) * factor
+            protein = float(info.get('protein', 0)) * factor
+            carbs = float(info.get('carbs', 0)) * factor
+            fat = float(info.get('fat', 0)) * factor
             fiber = float(info.get('fiber', 0)) * factor
             nutriscore = info.get('nutriscore')
-            add_food(session['session_id'], name, calories, protein, carbs, fat, fiber, quantity, nutriscore)
+            add_food(session['session_id'], name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore)
             return redirect(url_for('index'))
         except Exception as exc:
             print(f"Erreur lors de l'ajout d'aliment: {exc}")
             error = "Impossible de récupérer les informations nutritionnelles."
-    return render_template('add.html', error=error, name=name, quantity=quantity, unit=unit)
+    return render_template('add.html', error=error, name=name, quantity=quantity, unit=unit, barcode=barcode)
 
 @app.route('/delete/<int:food_id>', methods=['POST'])
 def delete(food_id):
