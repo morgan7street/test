@@ -132,7 +132,7 @@ export default function Dashboard() {
                     {food.quantity} {food.unit} • {Math.round(food.calories)} kcal
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    P: {Math.round(food.protein)}g • G: {Math.round(food.carbs)}g • L: {Math.round(food.fat)}g
+                    P: {Math.round(food.protein)}g • G: {Math.round(food.carbs)}g • L: {Math.round(food.fat)}g • F: {Math.round(food.fiber)}g
                   </div>
                 </div>
                 <button

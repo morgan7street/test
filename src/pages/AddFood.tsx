@@ -29,30 +29,25 @@ export default function AddFood() {
       return
     }
 
-    if (!nutritionInfo) {
-      setError('Informations nutritionnelles manquantes')
-      return
-    }
-
     try {
       setIsLoading(true)
       
-      // Calculate nutrition values based on quantity
-      const factor = quantity / 100
-      
-      addFood({
-        name: name.trim(),
-        calories: nutritionInfo.calories * factor,
-        protein: nutritionInfo.protein * factor,
-        carbs: nutritionInfo.carbs * factor,
-        fat: nutritionInfo.fat * factor,
-        fiber: nutritionInfo.fiber * factor,
-        quantity,
-        unit,
-        nutriscore: nutritionInfo.nutriscore,
+      // Utiliser l'API existante pour récupérer les informations nutritionnelles
+      const formData = new FormData()
+      formData.append('name', name.trim())
+      formData.append('quantity', quantity.toString())
+      formData.append('unit', unit)
+
+      const response = await fetch('/add', {
+        method: 'POST',
+        body: formData
       })
 
-      navigate('/')
+      if (response.ok) {
+        navigate('/')
+      } else {
+        setError('Erreur lors de l\'ajout de l\'aliment')
+      }
     } catch (err) {
       setError('Erreur lors de l\'ajout de l\'aliment')
     } finally {
@@ -61,62 +56,45 @@ export default function AddFood() {
   }
 
   const handleManualEntry = () => {
-    // For demo purposes, we'll use mock nutrition data
-    // In a real app, this would call an API
-    setIsLoading(true)
-    setTimeout(() => {
-      setNutritionInfo({
-        calories: 250,
-        protein: 8,
-        carbs: 45,
-        fat: 5,
-        fiber: 3,
-        nutriscore: 'B'
-      })
-      setIsLoading(false)
-      setMode('manual')
-    }, 1500)
+    setMode('manual')
   }
 
-  const handlePhotoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
     setIsLoading(true)
     setMode('photo')
     
-    // Mock photo recognition
-    setTimeout(() => {
-      setName('Pomme')
-      setNutritionInfo({
-        calories: 52,
-        protein: 0.3,
-        carbs: 14,
-        fat: 0.2,
-        fiber: 2.4,
-        nutriscore: 'A'
-      })
-      setIsLoading(false)
-    }, 2000)
-  }
+    try {
+      const formData = new FormData()
+      formData.append('photo', file)
 
-  const handleBarcodeScanned = (code: string) => {
-    setIsLoading(true)
-    setMode('barcode')
-    
-    // Mock barcode lookup
-    setTimeout(() => {
-      setName('Yaourt nature')
-      setNutritionInfo({
-        calories: 60,
-        protein: 4,
-        carbs: 5,
-        fat: 3,
-        fiber: 0,
-        nutriscore: 'A'
+      const response = await fetch('/recognize', {
+        method: 'POST',
+        body: formData
       })
+
+      const data = await response.json()
+      
+      if (data.error) {
+        setError(data.error)
+      } else {
+        setName(data.name || '')
+        setNutritionInfo({
+          calories: data.calories || 0,
+          protein: data.protein || 0,
+          carbs: data.carbs || 0,
+          fat: data.fat || 0,
+          fiber: data.fiber || 0,
+          nutriscore: data.nutriscore
+        })
+      }
+    } catch (err) {
+      setError('Erreur lors de la reconnaissance de l\'image')
+    } finally {
       setIsLoading(false)
-    }, 1500)
+    }
   }
 
   const resetForm = () => {
@@ -192,7 +170,7 @@ export default function AddFood() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            onClick={() => handleBarcodeScanned('mock-barcode')}
+            onClick={() => setMode('barcode')}
             className="w-full card hover:shadow-md transition-all duration-200 text-left"
           >
             <div className="flex items-center space-x-4">
@@ -232,7 +210,9 @@ export default function AddFood() {
         <motion.form
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          onSubmit={handleSubmit}
+          action="/add"
+          method="POST"
+          encType="multipart/form-data"
           className="space-y-6"
         >
           {/* Nutrition Info Display */}
@@ -263,26 +243,29 @@ export default function AddFood() {
                   <span className="text-gray-600">Lipides:</span>
                   <span className="font-medium ml-2">{nutritionInfo.fat}g</span>
                 </div>
+                <div>
+                  <span className="text-gray-600">Fibres:</span>
+                  <span className="font-medium ml-2">{nutritionInfo.fiber}g</span>
+                </div>
               </div>
             </motion.div>
           )}
 
-          {/* Manual name input for manual mode */}
-          {mode === 'manual' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nom de l'aliment
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input-field"
-                placeholder="Ex: Pomme, Yaourt nature..."
-                required
-              />
-            </div>
-          )}
+          {/* Name input */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nom de l'aliment
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="input-field"
+              placeholder="Ex: Pomme, Yaourt nature..."
+              required
+            />
+          </div>
 
           {/* Quantity */}
           <div>
@@ -292,6 +275,7 @@ export default function AddFood() {
             <input
               type="number"
               step="0.01"
+              name="quantity"
               value={quantity}
               onChange={(e) => setQuantity(Number(e.target.value))}
               className="input-field"
@@ -305,6 +289,7 @@ export default function AddFood() {
               Unité
             </label>
             <select
+              name="unit"
               value={unit}
               onChange={(e) => setUnit(e.target.value as Unit)}
               className="input-field"
@@ -328,8 +313,7 @@ export default function AddFood() {
           <div className="flex space-x-4">
             <button
               type="submit"
-              disabled={!nutritionInfo || isLoading}
-              className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="flex-1 btn-primary flex items-center justify-center space-x-2"
             >
               <Check size={20} />
               <span>Ajouter</span>
