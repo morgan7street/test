@@ -94,10 +94,9 @@ def fetch_nutrition(name, quantity, unit):
         f"Donne la valeur nutritionnelle pour {qty_str} de {name} en calories, proteines, glucides, lipides et fibres ainsi que le Nutri-score (A-E)."
         " Reponds en JSON avec les cles calories, protein, carbs, fat, fiber et nutriscore."
     )
-    data = {
-        "messages": [
-            {"role": "user", "content": prompt}
-def add_food(session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore):
+    # Construction de la charge utile pour OpenRouter
+    payload = {
+            json=payload,
         "INSERT INTO food (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore) VALUES (?,?,?,?,?,?,?,?,?,?)",
         (session_id, name, calories, protein, carbs, fat, fiber, quantity, unit, nutriscore),
         if units not in VALID_UNITS:
